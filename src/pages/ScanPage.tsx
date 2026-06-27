@@ -133,12 +133,20 @@ const ScanPage: React.FC = () => {
 
           {error && <div className="alert alert-danger" style={{ marginBottom: 14 }}>{error}</div>}
 
-          <button
-            className="btn" style={{ width: '100%', background: dirColor, color: '#fff', padding: 15, fontSize: '1rem' }}
-            onClick={handleConfirm} disabled={loading || !qty || Number(qty) <= 0}
-          >
-            {loading ? 'שומר...' : `${result.direction === 'in' ? '✓ אישור כניסה' : '✓ אישור יציאה'} — ${qty || 0} ${selected.unit}`}
-          </button>
+          <div style={{ display: 'flex', gap: 10 }}>
+            <button
+              onClick={reset}
+              style={{ padding: '15px 18px', borderRadius: 10, border: '1.5px solid #E2E8F0', background: '#F8FAFC', color: '#64748B', fontWeight: 600, fontSize: '0.9rem' }}
+            >
+              ✕ ביטול
+            </button>
+            <button
+              className="btn" style={{ flex: 1, background: dirColor, color: '#fff', padding: 15, fontSize: '1rem' }}
+              onClick={handleConfirm} disabled={loading || !qty || Number(qty) <= 0}
+            >
+              {loading ? 'שומר...' : `${result.direction === 'in' ? '✓ אישור כניסה' : '✓ אישור יציאה'} — ${qty || 0} ${selected.unit}`}
+            </button>
+          </div>
         </div>
       )}
     </AppShell>
