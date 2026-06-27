@@ -1,36 +1,14 @@
 import React, { useEffect, useRef, useState } from 'react';
+import JsBarcode from 'jsbarcode';
 import AppShell from '../components/layout/AppShell';
 import { barcodeApi } from '../api';
-
-function drawBarcode(canvas: HTMLCanvasElement, code: string, direction: 'in' | 'out') {
-  const ctx = canvas.getContext('2d');
-  if (!ctx) return;
-  const W = canvas.width, H = canvas.height;
-  ctx.fillStyle = direction === 'in' ? '#F0FDF4' : '#FEF2F2';
-  ctx.fillRect(0, 0, W, H);
-  const barCount = code.length * 9 + 18;
-  const barW = Math.max(1, Math.floor((W - 24) / barCount));
-  const startX = Math.floor((W - barW * barCount) / 2);
-  const barH = H - 28;
-  ctx.fillStyle = direction === 'in' ? '#15803D' : '#B91C1C';
-  [0, 2].forEach(b => ctx.fillRect(startX + b * barW, 6, barW, barH));
-  Array.from(code).forEach((ch, ci) => {
-    const bits = ch.charCodeAt(0);
-    for (let b = 0; b < 7; b++) if ((bits >> b) & 1) ctx.fillRect(startX + (ci * 9 + b + 3) * barW, 6, barW - 1, barH);
-  });
-  [0, 2, 4].forEach(b => ctx.fillRect(startX + (code.length * 9 + 3 + b) * barW, 6, barW, barH));
-  ctx.font = 'bold 11px monospace';
-  ctx.textAlign = 'center';
-  ctx.fillStyle = direction === 'in' ? '#14532D' : '#7F1D1D';
-  ctx.fillText(code, W / 2, H - 6);
-}
 
 interface Pair { locId: string; locName: string; inCode: string; outCode: string; }
 
 const BarcodesPage: React.FC = () => {
   const [pairs, setPairs] = useState<Pair[]>([]);
   const [loading, setLoading] = useState(true);
-  const canvasRefs = useRef<Record<string, HTMLCanvasElement | null>>({});
+  const svgRefs = useRef<Record<string, SVGSVGElement | null>>({});
 
   useEffect(() => {
     barcodeApi.getAll().then(r => {
@@ -46,12 +24,27 @@ const BarcodesPage: React.FC = () => {
     });
   }, []);
 
+  // Render real, camera-scannable CODE128 barcodes — this is the part that
+  // actually matters: the previous version drew fake bars on a canvas that
+  // looked like a barcode but no scanner could ever read. JsBarcode produces
+  // a standard CODE128 symbol that any barcode reader (including the phone
+  // camera scanner in the Scan page) can decode correctly.
   useEffect(() => {
     pairs.forEach(p => {
-      const cIn = canvasRefs.current[`${p.locId}-in`];
-      const cOut = canvasRefs.current[`${p.locId}-out`];
-      if (cIn) drawBarcode(cIn, p.inCode, 'in');
-      if (cOut) drawBarcode(cOut, p.outCode, 'out');
+      const svgIn  = svgRefs.current[`${p.locId}-in`];
+      const svgOut = svgRefs.current[`${p.locId}-out`];
+      if (svgIn) {
+        JsBarcode(svgIn, p.inCode, {
+          format: 'CODE128', lineColor: '#15803D', width: 2.4, height: 60,
+          displayValue: true, fontSize: 13, margin: 6, background: 'transparent',
+        });
+      }
+      if (svgOut) {
+        JsBarcode(svgOut, p.outCode, {
+          format: 'CODE128', lineColor: '#B91C1C', width: 2.4, height: 60,
+          displayValue: true, fontSize: 13, margin: 6, background: 'transparent',
+        });
+      }
     });
   }, [pairs]);
 
@@ -59,11 +52,11 @@ const BarcodesPage: React.FC = () => {
     const win = window.open('', '_blank');
     if (!win) return;
     const cards = pairs.map(p => {
-      const imgIn = canvasRefs.current[`${p.locId}-in`]?.toDataURL() || '';
-      const imgOut = canvasRefs.current[`${p.locId}-out`]?.toDataURL() || '';
+      const svgIn  = svgRefs.current[`${p.locId}-in`]?.outerHTML  || '';
+      const svgOut = svgRefs.current[`${p.locId}-out`]?.outerHTML || '';
       return `<div class="card"><div class="loc">${p.locName}</div><div class="row">
-        <div class="box in"><div class="lbl">▼ כניסה</div>${imgIn?`<img src="${imgIn}">`:p.inCode}</div>
-        <div class="box out"><div class="lbl">▲ יציאה</div>${imgOut?`<img src="${imgOut}">`:p.outCode}</div>
+        <div class="box in"><div class="lbl">▼ כניסה</div><div class="shortcode">${p.inCode}</div>${svgIn}</div>
+        <div class="box out"><div class="lbl">▲ יציאה</div><div class="shortcode">${p.outCode}</div>${svgOut}</div>
       </div></div>`;
     }).join('');
     win.document.write(`<!DOCTYPE html><html dir="rtl"><head><meta charset="UTF-8"><title>ברקודים לנדוור</title>
@@ -71,9 +64,10 @@ const BarcodesPage: React.FC = () => {
 h1{text-align:center;font-size:16px;margin-bottom:14px}.grid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px}
 .card{border:1.5px solid #CBD5E1;border-radius:8px;padding:11px;page-break-inside:avoid}
 .loc{font-size:12px;font-weight:700;margin-bottom:8px}.row{display:grid;grid-template-columns:1fr 1fr;gap:7px}
-.box{border-radius:6px;padding:7px;text-align:center}.in{background:#F0FDF4;border:1px solid #86EFAC}
-.out{background:#FEF2F2;border:1px solid #FCA5A5}.lbl{font-size:9px;font-weight:700;margin-bottom:4px}
-.in .lbl{color:#15803D}.out .lbl{color:#B91C1C}img{width:100%}</style></head>
+.box{border-radius:6px;padding:7px;text-align:center;background:#fff}.in{border:1px solid #86EFAC}
+.out{border:1px solid #FCA5A5}.lbl{font-size:9px;font-weight:700;margin-bottom:4px}
+.shortcode{font-size:18px;font-weight:800;letter-spacing:1px;margin-bottom:4px}
+.in .lbl,.in .shortcode{color:#15803D}.out .lbl,.out .shortcode{color:#B91C1C}svg{max-width:100%}</style></head>
 <body><h1>☕ Stock-It לנדוור — ברקודי מיקומים</h1><div class="grid">${cards}</div>
 <script>window.onload=()=>window.print()</script></body></html>`);
     win.document.close();
@@ -87,18 +81,23 @@ h1{text-align:center;font-size:16px;margin-bottom:14px}.grid{display:grid;grid-t
         <div style={{ fontSize: '0.82rem', color: '#64748B' }}>{pairs.length} מיקומים</div>
         <button className="btn btn-primary" style={{ padding: '8px 16px', fontSize: '0.82rem' }} onClick={handlePrint}>🖨 הדפס הכל</button>
       </div>
+      <p style={{ fontSize: '0.78rem', color: '#94A3B8', marginBottom: 16, lineHeight: 1.5 }}>
+        הדפס דף אחד לכל מקרר/מקפיא ותלה אותו לידו. <strong>באנדרואיד</strong> — צלם את הברקוד בעמוד "סריקה". <strong>באייפון</strong> — הקלד את הקוד הקצר שמופיע מעל הברקוד (למשל F3I).
+      </p>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
         {pairs.map(p => (
           <div key={p.locId} className="card">
             <div style={{ fontWeight: 700, fontSize: '0.9rem', marginBottom: 10 }}>{p.locName}</div>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-              <div style={{ background: '#F0FDF4', border: '1.5px solid #86EFAC', borderRadius: 8, padding: 8, textAlign: 'center' }}>
+              <div style={{ background: '#fff', border: '1.5px solid #86EFAC', borderRadius: 8, padding: 8, textAlign: 'center' }}>
                 <div style={{ fontSize: '0.7rem', fontWeight: 700, color: '#15803D', marginBottom: 4 }}>▼ כניסה</div>
-                <canvas ref={el => { canvasRefs.current[`${p.locId}-in`] = el; }} width={150} height={68} style={{ width: '100%', height: 'auto' }} />
+                <div style={{ fontSize: '1.1rem', fontWeight: 800, color: '#15803D', marginBottom: 4, letterSpacing: 1 }}>{p.inCode}</div>
+                <svg ref={el => { svgRefs.current[`${p.locId}-in`] = el; }} style={{ width: '100%' }} />
               </div>
-              <div style={{ background: '#FEF2F2', border: '1.5px solid #FCA5A5', borderRadius: 8, padding: 8, textAlign: 'center' }}>
+              <div style={{ background: '#fff', border: '1.5px solid #FCA5A5', borderRadius: 8, padding: 8, textAlign: 'center' }}>
                 <div style={{ fontSize: '0.7rem', fontWeight: 700, color: '#B91C1C', marginBottom: 4 }}>▲ יציאה</div>
-                <canvas ref={el => { canvasRefs.current[`${p.locId}-out`] = el; }} width={150} height={68} style={{ width: '100%', height: 'auto' }} />
+                <div style={{ fontSize: '1.1rem', fontWeight: 800, color: '#B91C1C', marginBottom: 4, letterSpacing: 1 }}>{p.outCode}</div>
+                <svg ref={el => { svgRefs.current[`${p.locId}-out`] = el; }} style={{ width: '100%' }} />
               </div>
             </div>
           </div>
