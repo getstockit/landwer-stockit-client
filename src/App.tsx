@@ -11,6 +11,7 @@ import ProductsPage from './pages/ProductsPage';
 import ReportsPage from './pages/ReportsPage';
 import BarcodesPage from './pages/BarcodesPage';
 import TeamPage from './pages/TeamPage';
+import AlertsPage from './pages/AlertsPage';
 
 const App: React.FC = () => (
   <AuthProvider>
@@ -20,6 +21,7 @@ const App: React.FC = () => (
         <Route path="/" element={<ProtectedRoute><InventoryPage /></ProtectedRoute>} />
         <Route path="/scan" element={<ProtectedRoute><ScanPage /></ProtectedRoute>} />
         <Route path="/delivery" element={<ProtectedRoute><DeliveryPage /></ProtectedRoute>} />
+        <Route path="/alerts" element={<ProtectedRoute><AlertsPage /></ProtectedRoute>} />
         <Route path="/products" element={<ProtectedRoute managerOnly><ProductsPage /></ProtectedRoute>} />
         <Route path="/reports" element={<ProtectedRoute managerOnly><ReportsPage /></ProtectedRoute>} />
         <Route path="/barcodes" element={<ProtectedRoute managerOnly><BarcodesPage /></ProtectedRoute>} />

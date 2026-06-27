@@ -62,6 +62,7 @@ export const deliveryApi = {
 };
 
 export const reportApi = {
+  lowStock: () => api.get('/reports/low-stock'),
   current: () => api.get('/reports/current'),
   history: (params?: object) => api.get('/reports/history', { params }),
 };
