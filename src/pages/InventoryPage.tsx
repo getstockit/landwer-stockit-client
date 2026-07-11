@@ -53,7 +53,8 @@ const InventoryPage: React.FC = () => {
   const [loading, setLoading]     = useState(true);
   const [search, setSearch]       = useState('');
   const [expanded, setExpanded]   = useState<string | null>(null);
-  const [busyId, setBusyId]       = useState<string | null>(null);
+  const [pending, setPending]     = useState<Record<string, number>>({});
+  const [confirmingId, setConfirmingId] = useState<string | null>(null);
   const [error, setError]         = useState('');
 
   const load = () => Promise.all([locationApi.getAll(), productApi.getAll()])
@@ -71,25 +72,37 @@ const InventoryPage: React.FC = () => {
 
   const lowStockTotal = products.filter(p => p.quantity <= p.minQty).length;
 
-  // Direct +1/-1 adjustment from the inventory list — goes through the same
-  // logged stock-in/stock-out endpoints as barcode scanning, so every change
-  // still shows up correctly in reports with the right user/time/shift.
-  const adjust = async (product: Product, delta: 1 | -1) => {
-    if (busyId) return; // avoid double-taps while a request is in flight
+  // Tapping +/- only adjusts a *local, unsaved* delta — it does NOT hit the
+  // server. This avoids logging a movement (and cluttering the reports) for
+  // every single tap. Only the explicit "✓ אשר" button below actually saves,
+  // as ONE stock-in/stock-out movement with the net quantity.
+  const bump = (product: Product, delta: 1 | -1) => {
+    setPending(prev => {
+      const next = (prev[product.id] || 0) + delta;
+      if (product.quantity + next < 0) return prev; // never let it go negative
+      return { ...prev, [product.id]: next };
+    });
+  };
+
+  const cancelPending = (id: string) => setPending(prev => { const c = { ...prev }; delete c[id]; return c; });
+
+  const confirmPending = async (product: Product) => {
+    const delta = pending[product.id] || 0;
+    if (delta === 0) return;
     setError('');
-    setBusyId(product.id);
+    setConfirmingId(product.id);
     try {
-      if (delta === 1) {
-        await movementApi.stockIn({ productId: product.id, locationId: product.locationId, quantity: 1 });
+      if (delta > 0) {
+        await movementApi.stockIn({ productId: product.id, locationId: product.locationId, quantity: delta });
       } else {
-        if (product.quantity <= 0) { setBusyId(null); return; }
-        await movementApi.stockOut({ productId: product.id, locationId: product.locationId, quantity: 1 });
+        await movementApi.stockOut({ productId: product.id, locationId: product.locationId, quantity: -delta });
       }
       setProducts(prev => prev.map(p => p.id === product.id ? { ...p, quantity: p.quantity + delta } : p));
+      cancelPending(product.id);
     } catch (e: any) {
       setError(e.response?.data?.error || 'שגיאה בעדכון כמות');
     } finally {
-      setBusyId(null);
+      setConfirmingId(null);
     }
   };
 
@@ -157,7 +170,10 @@ const InventoryPage: React.FC = () => {
                 <div style={{ borderTop: '1px solid #F1F5F9' }}>
                   {locProducts.map(p => {
                     const isLow = p.quantity <= p.minQty;
-                    const busy = busyId === p.id;
+                    const delta = pending[p.id] || 0;
+                    const hasPending = delta !== 0;
+                    const displayQty = p.quantity + delta;
+                    const confirming = confirmingId === p.id;
                     return (
                       <div key={p.id} style={{ padding: '10px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #F8FAFC', gap: 10 }}>
                         <div style={{ flex: 1, minWidth: 0 }}>
@@ -168,32 +184,50 @@ const InventoryPage: React.FC = () => {
                           </div>
                         </div>
 
-                        {/* Direct +/- quantity stepper */}
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
-                          <button
-                            onClick={() => adjust(p, -1)}
-                            disabled={busy || p.quantity <= 0}
-                            style={{
-                              width: 30, height: 30, borderRadius: 8, border: '1.5px solid #FCA5A5',
-                              background: '#FEF2F2', color: '#DC2626', fontSize: '1rem', fontWeight: 700,
-                              opacity: (busy || p.quantity <= 0) ? 0.4 : 1,
-                            }}
-                          >−</button>
+                        {/* Stepper — taps only stage a local change; nothing is
+                            saved (and no movement is logged) until "✓ אשר". */}
+                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6, flexShrink: 0 }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                            <button
+                              onClick={() => bump(p, -1)}
+                              disabled={confirming || displayQty <= 0}
+                              style={{
+                                width: 30, height: 30, borderRadius: 8, border: '1.5px solid #FCA5A5',
+                                background: '#FEF2F2', color: '#DC2626', fontSize: '1rem', fontWeight: 700,
+                                opacity: (confirming || displayQty <= 0) ? 0.4 : 1,
+                              }}
+                            >−</button>
 
-                          <div style={{ minWidth: 38, textAlign: 'center' }}>
-                            <div style={{ fontWeight: 800, fontSize: '1.05rem', color: isLow ? '#DC2626' : '#1E293B' }}>{p.quantity}</div>
-                            <div style={{ fontSize: '0.62rem', color: '#94A3B8' }}>{p.unit}</div>
+                            <div style={{ minWidth: 38, textAlign: 'center' }}>
+                              <div style={{ fontWeight: 800, fontSize: '1.05rem', color: hasPending ? '#C8102E' : (isLow ? '#DC2626' : '#1E293B') }}>{displayQty}</div>
+                              <div style={{ fontSize: '0.62rem', color: '#94A3B8' }}>{p.unit}</div>
+                            </div>
+
+                            <button
+                              onClick={() => bump(p, 1)}
+                              disabled={confirming}
+                              style={{
+                                width: 30, height: 30, borderRadius: 8, border: '1.5px solid #86EFAC',
+                                background: '#F0FDF4', color: '#15803D', fontSize: '1rem', fontWeight: 700,
+                                opacity: confirming ? 0.4 : 1,
+                              }}
+                            >+</button>
                           </div>
 
-                          <button
-                            onClick={() => adjust(p, 1)}
-                            disabled={busy}
-                            style={{
-                              width: 30, height: 30, borderRadius: 8, border: '1.5px solid #86EFAC',
-                              background: '#F0FDF4', color: '#15803D', fontSize: '1rem', fontWeight: 700,
-                              opacity: busy ? 0.4 : 1,
-                            }}
-                          >+</button>
+                          {hasPending && (
+                            <div style={{ display: 'flex', gap: 6 }}>
+                              <button
+                                onClick={() => cancelPending(p.id)}
+                                disabled={confirming}
+                                style={{ fontSize: '0.68rem', padding: '4px 9px', borderRadius: 6, border: '1px solid #E2E8F0', background: '#F8FAFC', color: '#64748B', fontWeight: 600 }}
+                              >✕ בטל</button>
+                              <button
+                                onClick={() => confirmPending(p)}
+                                disabled={confirming}
+                                style={{ fontSize: '0.68rem', padding: '4px 11px', borderRadius: 6, border: 'none', background: '#16A34A', color: '#fff', fontWeight: 700 }}
+                              >{confirming ? '...' : `✓ אשר ${delta > 0 ? '+' : ''}${delta}`}</button>
+                            </div>
+                          )}
                         </div>
                       </div>
                     );

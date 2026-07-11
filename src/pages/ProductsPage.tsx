@@ -101,7 +101,8 @@ const ProductsPage: React.FC = () => {
               <EditableField value={p.price > 0 ? String(p.price) : ''} onSave={v => saveField(p.id, 'price', Number(v))} prefix="₪" placeholder="הגדר" />
               <span style={{ fontSize: '0.74rem', color: '#94A3B8' }}>מינימום:</span>
               <EditableField value={String(p.minQty)} onSave={v => saveField(p.id, 'minQty', Number(v) || 0)} placeholder="0" />
-              <span style={{ fontSize: '0.74rem', color: '#94A3B8' }}>{p.unit}</span>
+              <span style={{ fontSize: '0.74rem', color: '#94A3B8' }}>יחידת מידה:</span>
+              <EditableField value={p.unit} onSave={v => saveField(p.id, 'unit', v)} placeholder="יחידה" />
             </div>
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
               <select className="form-control" value={p.locationId} onChange={e => saveField(p.id, 'locationId', e.target.value)}
