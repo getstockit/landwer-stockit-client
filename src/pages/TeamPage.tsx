@@ -2,20 +2,37 @@ import React, { useEffect, useState } from 'react';
 import AppShell from '../components/layout/AppShell';
 import { authApi } from '../api';
 import { useAuth } from '../context/AuthContext';
-import type { UserListItem } from '../types';
+import type { UserListItem, PendingUser } from '../types';
 
 const TeamPage: React.FC = () => {
   const { user, registerManager } = useAuth();
   const [users, setUsers] = useState<UserListItem[]>([]);
+  const [pending, setPending] = useState<PendingUser[]>([]);
   const [loading, setLoading] = useState(true);
   const [showAdd, setShowAdd] = useState(false);
   const [name, setName] = useState('');
   const [pin, setPin] = useState('');
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
+  const [busyId, setBusyId] = useState<string | null>(null);
 
-  const load = () => authApi.listUsers().then(r => setUsers(r.data)).finally(() => setLoading(false));
+  const load = () => Promise.all([authApi.listUsers(), authApi.pendingUsers()])
+    .then(([u, p]) => { setUsers(u.data); setPending(p.data); })
+    .finally(() => setLoading(false));
   useEffect(() => { load(); }, []);
+
+  const handleApprove = async (id: string) => {
+    setBusyId(id);
+    try { await authApi.approveUser(id); await load(); }
+    finally { setBusyId(null); }
+  };
+
+  const handleReject = async (id: string, uName: string) => {
+    if (!window.confirm(`לדחות את הבקשה של "${uName}"?`)) return;
+    setBusyId(id);
+    try { await authApi.rejectUser(id); await load(); }
+    finally { setBusyId(null); }
+  };
 
   const handleAddManager = async () => {
     if (!name.trim() || pin.length !== 4) { setError('שם וקוד 4 ספרות חובה'); return; }
@@ -38,6 +55,31 @@ const TeamPage: React.FC = () => {
 
   return (
     <AppShell title="ניהול צוות">
+      {pending.length > 0 && (
+        <div style={{ marginBottom: 20 }}>
+          <div style={{ fontSize: '0.82rem', fontWeight: 700, color: '#D97706', marginBottom: 8 }}>⏳ בקשות ממתינות לאישור ({pending.length})</div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {pending.map(p => (
+              <div key={p.id} className="card" style={{ padding: '12px 14px', background: '#FFFBEB', borderColor: '#FDE68A' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
+                  <div style={{ width: 36, height: 36, borderRadius: '50%', background: '#D97706', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700 }}>
+                    {p.name.charAt(0)}
+                  </div>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontWeight: 700, fontSize: '0.9rem' }}>{p.name}</div>
+                    <div style={{ fontSize: '0.72rem', color: '#94A3B8' }}>ביקש/ה להצטרף · {new Date(p.createdAt).toLocaleDateString('he-IL')}</div>
+                  </div>
+                </div>
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <button onClick={() => handleReject(p.id, p.name)} disabled={busyId === p.id} style={{ flex: 1, background: '#FEF2F2', border: '1px solid #FCA5A5', color: '#DC2626', borderRadius: 8, padding: '8px 0', fontSize: '0.8rem', fontWeight: 700 }}>✕ דחה</button>
+                  <button onClick={() => handleApprove(p.id)} disabled={busyId === p.id} style={{ flex: 2, background: '#16A34A', border: 'none', color: '#fff', borderRadius: 8, padding: '8px 0', fontSize: '0.8rem', fontWeight: 700 }}>✓ אשר הצטרפות</button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
         <div style={{ fontSize: '0.82rem', color: '#64748B' }}>{users.length} משתמשים פעילים</div>
         <button className="btn btn-primary" style={{ padding: '8px 14px', fontSize: '0.82rem' }} onClick={() => setShowAdd(true)}>+ הוסף מנהל</button>

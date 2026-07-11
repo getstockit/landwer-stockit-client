@@ -5,7 +5,7 @@ import { authApi } from '../api';
 interface AuthContextType {
   user: AuthUser | null;
   loginWithUser: (userId: string, pin: string) => Promise<void>;
-  register: (name: string, pin: string) => Promise<void>;
+  register: (name: string, pin: string) => Promise<{ pending: boolean }>;
   registerManager: (name: string, pin: string, bootstrapCode?: string) => Promise<void>;
   logout: () => void;
   isLoading: boolean;
@@ -50,7 +50,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const register = async (name: string, pin: string) => {
     const res = await authApi.register(name, pin);
+    if (res.data.pending) return { pending: true };
     persist(res.data.token, res.data.user);
+    return { pending: false };
   };
 
   const registerManager = async (name: string, pin: string, bootstrapCode?: string) => {

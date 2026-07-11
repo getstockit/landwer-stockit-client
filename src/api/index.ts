@@ -34,9 +34,26 @@ export const authApi = {
   register:        (name: string, pin: string) => api.post('/auth/register', { name, pin }),
   registerManager: (name: string, pin: string, bootstrapCode?: string) => api.post('/auth/register-manager', { name, pin, bootstrapCode }),
   deleteUser:      (id: string) => api.delete(`/auth/users/${id}`),
+  pendingUsers:    () => api.get('/auth/pending'),
+  approveUser:     (id: string) => api.post(`/auth/users/${id}/approve`),
+  rejectUser:      (id: string) => api.post(`/auth/users/${id}/reject`),
 };
 
-export const locationApi = { getAll: () => api.get('/locations') };
+export const locationApi = {
+  getAll: () => api.get('/locations'),
+  create: (d: object) => api.post('/locations', d),
+  update: (id: string, d: object) => api.put(`/locations/${id}`, d),
+  remove: (id: string) => api.delete(`/locations/${id}`),
+};
+
+export const supplierApi = {
+  getAll: () => api.get('/suppliers'),
+  create: (d: object) => api.post('/suppliers', d),
+  update: (id: string, d: object) => api.put(`/suppliers/${id}`, d),
+  remove: (id: string) => api.delete(`/suppliers/${id}`),
+};
+
+export const alertsApi = { get: () => api.get('/alerts') };
 
 export const productApi = {
   getAll: () => api.get('/products'),
@@ -53,6 +70,7 @@ export const movementApi = {
 export const barcodeApi = {
   getAll: () => api.get('/barcodes'),
   lookup: (code: string) => api.get(`/barcodes/lookup/${encodeURIComponent(code)}`),
+  regenerate: () => api.post('/barcodes/regenerate'),
 };
 
 export const deliveryApi = {
@@ -62,7 +80,6 @@ export const deliveryApi = {
 };
 
 export const reportApi = {
-  lowStock: () => api.get('/reports/low-stock'),
   current: () => api.get('/reports/current'),
   history: (params?: object) => api.get('/reports/history', { params }),
 };

@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import AppShell from '../components/layout/AppShell';
-import { productApi, locationApi } from '../api';
-import type { Product, Location } from '../types';
+import { productApi, locationApi, supplierApi } from '../api';
+import type { Product, Location, Supplier } from '../types';
 
 function EditableField({ value, onSave, prefix = '', placeholder = '' }: { value: string; onSave: (v: string) => void; prefix?: string; placeholder?: string }) {
   const [editing, setEditing] = useState(false);
@@ -20,16 +21,34 @@ function EditableField({ value, onSave, prefix = '', placeholder = '' }: { value
   );
 }
 
+function EditableName({ value, onSave }: { value: string; onSave: (v: string) => void }) {
+  const [editing, setEditing] = useState(false);
+  const [val, setVal] = useState(value);
+  const commit = () => { if (val.trim()) onSave(val.trim()); setEditing(false); };
+  if (editing) return (
+    <input autoFocus value={val} onChange={e => setVal(e.target.value)}
+      onBlur={commit} onKeyDown={e => { if (e.key === 'Enter') commit(); if (e.key === 'Escape') { setVal(value); setEditing(false); } }}
+      style={{ width: '100%', padding: '6px 8px', borderRadius: 6, border: '2px solid #C8102E', fontSize: '0.9rem', fontWeight: 700 }} />
+  );
+  return (
+    <div onClick={() => { setVal(value); setEditing(true); }} style={{ fontWeight: 700, fontSize: '0.9rem', marginBottom: 8, cursor: 'pointer' }}>
+      {value} <span style={{ color: '#CBD5E1', fontWeight: 400, fontSize: '0.78rem' }}>✏</span>
+    </div>
+  );
+}
+
 const ProductsPage: React.FC = () => {
+  const navigate = useNavigate();
   const [products, setProducts] = useState<Product[]>([]);
   const [locations, setLocations] = useState<Location[]>([]);
+  const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [showAdd, setShowAdd] = useState(false);
   const [form, setForm] = useState({ name: '', locationId: '', unit: 'יחידה', sku: '', price: '', minQty: '5', hasBarcode: true });
 
-  const load = () => Promise.all([productApi.getAll(), locationApi.getAll()])
-    .then(([p, l]) => { setProducts(p.data); setLocations(l.data); })
+  const load = () => Promise.all([productApi.getAll(), locationApi.getAll(), supplierApi.getAll()])
+    .then(([p, l, s]) => { setProducts(p.data); setLocations(l.data); setSuppliers(s.data); })
     .finally(() => setLoading(false));
 
   useEffect(() => { load(); }, []);
@@ -47,15 +66,25 @@ const ProductsPage: React.FC = () => {
     setShowAdd(false);
   };
 
+  const handleToggleActive = async (p: Product) => {
+    if (p.isActive && !window.confirm(`להסיר את "${p.name}" מרשימת המוצרים הפעילים?`)) return;
+    await saveField(p.id, 'isActive', !p.isActive);
+  };
+
   const missingSku = products.filter(p => !p.sku).length;
-  const filtered = products.filter(p => !search || p.name.includes(search) || (p.sku||'').includes(search));
+  const filtered = products.filter(p => p.isActive && (!search || p.name.includes(search) || (p.sku||'').includes(search)));
 
   if (loading) return <AppShell title="מוצרים"><div className="spinner" style={{ marginTop: 60 }} /></AppShell>;
 
   return (
     <AppShell title="ניהול מוצרים">
+      <div style={{ display: 'flex', gap: 8, marginBottom: 14, overflowX: 'auto' }}>
+        <button onClick={() => navigate('/locations')} style={{ flex: '1 0 auto', padding: '9px 12px', borderRadius: 10, border: '1px solid #E2E8F0', background: '#F8FAFC', fontSize: '0.76rem', fontWeight: 600, whiteSpace: 'nowrap' }}>❄️ מקררים ומקפיאים</button>
+        <button onClick={() => navigate('/suppliers')} style={{ flex: '1 0 auto', padding: '9px 12px', borderRadius: 10, border: '1px solid #E2E8F0', background: '#F8FAFC', fontSize: '0.76rem', fontWeight: 600, whiteSpace: 'nowrap' }}>🚚 ספקים</button>
+      </div>
+
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
-        <div style={{ fontSize: '0.82rem', color: '#64748B' }}>{products.length} מוצרים{missingSku > 0 ? ` · ${missingSku} ללא מק"ט` : ''}</div>
+        <div style={{ fontSize: '0.82rem', color: '#64748B' }}>{filtered.length} מוצרים{missingSku > 0 ? ` · ${missingSku} ללא מק"ט` : ''}</div>
         <button className="btn btn-primary" style={{ padding: '8px 14px', fontSize: '0.82rem' }} onClick={() => setShowAdd(true)}>+ מוצר</button>
       </div>
 
@@ -64,13 +93,27 @@ const ProductsPage: React.FC = () => {
       <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
         {filtered.map(p => (
           <div key={p.id} className="card" style={{ padding: '12px 14px' }}>
-            <div style={{ fontWeight: 700, fontSize: '0.9rem', marginBottom: 8 }}>{p.name}</div>
-            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+            <EditableName value={p.name} onSave={v => saveField(p.id, 'name', v)} />
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center', marginBottom: 8 }}>
               <span style={{ fontSize: '0.74rem', color: '#94A3B8' }}>מק"ט:</span>
               <EditableField value={p.sku} onSave={v => saveField(p.id, 'sku', v)} placeholder="הוסף" />
               <span style={{ fontSize: '0.74rem', color: '#94A3B8' }}>מחיר:</span>
               <EditableField value={p.price > 0 ? String(p.price) : ''} onSave={v => saveField(p.id, 'price', Number(v))} prefix="₪" placeholder="הגדר" />
+              <span style={{ fontSize: '0.74rem', color: '#94A3B8' }}>מינימום:</span>
+              <EditableField value={String(p.minQty)} onSave={v => saveField(p.id, 'minQty', Number(v) || 0)} placeholder="0" />
               <span style={{ fontSize: '0.74rem', color: '#94A3B8' }}>{p.unit}</span>
+            </div>
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+              <select className="form-control" value={p.locationId} onChange={e => saveField(p.id, 'locationId', e.target.value)}
+                style={{ flex: '1 1 140px', padding: '5px 8px', fontSize: '0.78rem', width: 'auto' }}>
+                {locations.map(l => <option key={l.id} value={l.id}>{l.name}</option>)}
+              </select>
+              <select className="form-control" value={p.supplierId || ''} onChange={e => saveField(p.id, 'supplierId', e.target.value)}
+                style={{ flex: '1 1 140px', padding: '5px 8px', fontSize: '0.78rem', width: 'auto' }}>
+                <option value="">ללא ספק</option>
+                {suppliers.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+              </select>
+              <button onClick={() => handleToggleActive(p)} style={{ marginRight: 'auto', background: '#FEF2F2', border: '1px solid #FCA5A5', color: '#DC2626', borderRadius: 8, padding: '5px 10px', fontSize: '0.72rem' }}>הסר</button>
             </div>
           </div>
         ))}

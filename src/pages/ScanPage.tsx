@@ -1,100 +1,31 @@
-import React, { useEffect, useRef, useState } from 'react';
-import { Html5Qrcode, Html5QrcodeSupportedFormats } from 'html5-qrcode';
+import React, { useRef, useState } from 'react';
 import AppShell from '../components/layout/AppShell';
 import { barcodeApi, movementApi } from '../api';
 import type { Product, Location } from '../types';
 
 interface ScanResult { direction: 'in' | 'out'; location: Location; products: Product[]; }
 
-const SCANNER_ELEMENT_ID = 'barcode-camera-region';
-
-// Camera-based scanning only works reliably inside the native Android APK
-// (via Capacitor's WebView, with the permission fix documented in
-// MOBILE_INSTALL.md). On iOS, Safari refuses camera access for PWAs running
-// in standalone mode (installed via "Add to Home Screen") — this is a known,
-// unresolved WebKit limitation (bugs.webkit.org #185448), not something we
-// can fix from app code. So on every platform except native Android, we
-// fall back to typing the short code printed under each barcode instead.
-function isNativeAndroidApp(): boolean {
-  return typeof (window as any).Capacitor !== 'undefined' && (window as any).Capacitor.getPlatform?.() === 'android';
-}
-
 const ScanPage: React.FC = () => {
-  const supportsCamera = isNativeAndroidApp();
-  const [cameraActive, setCameraActive] = useState(false);
-  const [cameraError, setCameraError] = useState('');
-  const [manualCode, setManualCode] = useState('');
+  const [code, setCode] = useState('');
   const [result, setResult] = useState<ScanResult | null>(null);
   const [selected, setSelected] = useState<Product | null>(null);
   const [qty, setQty] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState<{ name: string; qty: number; dir: 'in'|'out' } | null>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
   const qtyRef = useRef<HTMLInputElement>(null);
-  const codeInputRef = useRef<HTMLInputElement>(null);
-  const scannerRef = useRef<Html5Qrcode | null>(null);
-  const lookingUpRef = useRef(false); // guards against firing multiple lookups for the same camera frame burst
 
-  // Stop the camera whenever we leave the "scanning" state — covers both
-  // a successful scan and the component unmounting (navigating away).
-  const stopCamera = async () => {
-    if (scannerRef.current) {
-      try { await scannerRef.current.stop(); } catch { /* already stopped */ }
-      try { scannerRef.current.clear(); } catch { /* no-op */ }
-      scannerRef.current = null;
-    }
-    setCameraActive(false);
-  };
-
-  useEffect(() => () => { stopCamera(); }, []);
-
-  const startCamera = async () => {
-    setCameraError(''); setError(''); setSuccess(null);
-    setCameraActive(true);
-    // Wait one tick so the camera container div is actually in the DOM before html5-qrcode looks for it.
-    await new Promise(r => setTimeout(r, 50));
+  const handleScan = async () => {
+    if (!code.trim()) return;
+    setLoading(true); setError(''); setSuccess(null);
     try {
-      const scanner = new Html5Qrcode(SCANNER_ELEMENT_ID, {
-        formatsToSupport: [Html5QrcodeSupportedFormats.CODE_128],
-        verbose: false,
-      });
-      scannerRef.current = scanner;
-      await scanner.start(
-        { facingMode: 'environment' }, // back camera
-        { fps: 10, qrbox: { width: 260, height: 140 } },
-        lookupCode,
-        () => { /* per-frame "nothing found" callback — expected constantly, ignore */ }
-      );
-    } catch (e: any) {
-      setCameraActive(false);
-      setCameraError(
-        e?.message?.includes('Permission')
-          ? 'לא ניתנה הרשאת מצלמה — אשר גישה למצלמה בדפדפן ונסה שוב'
-          : 'לא ניתן לפתוח את המצלמה. ודא שהאפליקציה פתוחה ב-HTTPS ושיש מצלמה זמינה.'
-      );
-    }
-  };
-
-  const lookupCode = async (rawCode: string) => {
-    const code = rawCode.trim();
-    if (!code) return;
-    if (lookingUpRef.current) return;
-    lookingUpRef.current = true;
-    await stopCamera();
-    setLoading(true);
-    try {
-      const res = await barcodeApi.lookup(code);
+      const res = await barcodeApi.lookup(code.trim());
       setResult(res.data);
-      setManualCode('');
-    } catch {
-      setError(`קוד לא מוכר: ${code}`);
-    } finally {
-      setLoading(false);
-      lookingUpRef.current = false;
-    }
+      setCode('');
+    } catch { setError('ברקוד לא נמצא: ' + code); setCode(''); }
+    finally { setLoading(false); }
   };
-
-  const handleManualSubmit = () => lookupCode(manualCode);
 
   const handleSelect = (p: Product) => {
     setSelected(p); setQty(''); setError('');
@@ -114,10 +45,7 @@ const ScanPage: React.FC = () => {
     finally { setLoading(false); }
   };
 
-  const reset = async () => {
-    await stopCamera();
-    setResult(null); setSelected(null); setQty(''); setError(''); setSuccess(null); setCameraError('');
-  };
+  const reset = () => { setResult(null); setSelected(null); setQty(''); setError(''); setSuccess(null); setTimeout(() => inputRef.current?.focus(), 100); };
 
   const dirColor = result?.direction === 'in' ? '#16A34A' : '#DC2626';
   const dirBg    = result?.direction === 'in' ? '#F0FDF4' : '#FEF2F2';
@@ -132,70 +60,29 @@ const ScanPage: React.FC = () => {
           <div style={{ fontSize: '1.3rem', fontWeight: 900, color: success.dir === 'in' ? '#16A34A' : '#DC2626' }}>
             {success.dir === 'in' ? '+' : '-'}{success.qty}
           </div>
-          <button className="btn btn-primary" style={{ marginTop: 16 }} onClick={() => { setSuccess(null); }}>סריקה נוספת</button>
+          <button className="btn btn-primary" style={{ marginTop: 16 }} onClick={reset}>סריקה נוספת</button>
         </div>
       )}
 
-      {/* STEP 1 — scan or type code */}
-      {!result && !success && !cameraActive && !loading && (
+      {!result && !success && (
         <div className="card" style={{ textAlign: 'center', padding: '36px 20px' }}>
-          <div style={{ fontSize: 56, marginBottom: 14 }}>{supportsCamera ? '📷' : '⌨️'}</div>
-          <div style={{ fontWeight: 700, fontSize: '1rem', marginBottom: 4 }}>
-            {supportsCamera ? 'סרוק ברקוד מקרר/מקפיא' : 'הזן את הקוד מהמדבקה'}
-          </div>
+          <div style={{ fontSize: 56, marginBottom: 14 }}>📷</div>
+          <div style={{ fontWeight: 700, fontSize: '1rem', marginBottom: 4 }}>סרוק ברקוד מיקום</div>
           <div style={{ fontSize: '0.82rem', color: '#94A3B8', marginBottom: 24 }}>ירוק = כניסה · אדום = יציאה</div>
-
-          {supportsCamera ? (
-            <button className="btn btn-primary" style={{ width: '100%', padding: 15, fontSize: '1rem' }} onClick={startCamera}>
-              📷 פתח מצלמה וסרוק
-            </button>
-          ) : (
-            <>
-              <input
-                ref={codeInputRef}
-                autoFocus
-                className="form-control"
-                placeholder="לדוגמה: F3I"
-                value={manualCode}
-                onChange={e => setManualCode(e.target.value.toUpperCase())}
-                onKeyDown={e => { if (e.key === 'Enter') handleManualSubmit(); }}
-                style={{ textAlign: 'center', fontSize: '1.3rem', fontWeight: 700, letterSpacing: 2, marginBottom: 12 }}
-              />
-              <button className="btn btn-primary" style={{ width: '100%', padding: 15, fontSize: '1rem' }} onClick={handleManualSubmit} disabled={!manualCode.trim()}>
-                ✓ אישור קוד
-              </button>
-              <div style={{ fontSize: '0.74rem', color: '#94A3B8', marginTop: 10 }}>
-                הקוד מודפס מתחת לברקוד בעמוד "ברקודים"
-              </div>
-            </>
-          )}
-
-          {cameraError && <div className="alert alert-danger" style={{ marginTop: 14 }}>{cameraError}</div>}
+          <input
+            ref={inputRef} autoFocus className="form-control"
+            placeholder="הזן/סרוק קוד..." value={code}
+            onChange={e => setCode(e.target.value)}
+            onKeyDown={e => e.key === 'Enter' && handleScan()}
+            style={{ textAlign: 'center', fontSize: '1.1rem', fontFamily: 'monospace', marginBottom: 12 }}
+          />
+          <button className="btn btn-primary" style={{ width: '100%' }} onClick={handleScan} disabled={loading || !code.trim()}>
+            {loading ? 'מחפש...' : 'חפש מיקום'}
+          </button>
           {error && <div className="alert alert-danger" style={{ marginTop: 14 }}>{error}</div>}
         </div>
       )}
 
-      {/* Camera view while actively scanning */}
-      {cameraActive && (
-        <div className="card" style={{ padding: 16, textAlign: 'center' }}>
-          <div style={{ fontSize: '0.85rem', fontWeight: 600, marginBottom: 10, color: '#64748B' }}>
-            כוון את המצלמה אל הברקוד...
-          </div>
-          <div id={SCANNER_ELEMENT_ID} style={{ borderRadius: 12, overflow: 'hidden' }} />
-          <button onClick={reset} style={{ marginTop: 14, padding: '10px 20px', borderRadius: 10, border: '1.5px solid #E2E8F0', background: '#F8FAFC', color: '#64748B', fontWeight: 600 }}>
-            ✕ ביטול סריקה
-          </button>
-        </div>
-      )}
-
-      {loading && !result && !cameraActive && (
-        <div className="card" style={{ textAlign: 'center', padding: '36px 20px' }}>
-          <div className="spinner" />
-          <div style={{ marginTop: 12, color: '#94A3B8', fontSize: '0.85rem' }}>מאתר מיקום...</div>
-        </div>
-      )}
-
-      {/* STEP 2 — select product */}
       {result && !selected && (
         <>
           <div style={{ background: dirBg, border: `1.5px solid ${dirColor}33`, borderRadius: 14, padding: '14px 16px', marginBottom: 16, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -222,7 +109,6 @@ const ScanPage: React.FC = () => {
         </>
       )}
 
-      {/* STEP 3 — quantity + confirm */}
       {result && selected && (
         <div className="card" style={{ padding: '24px 18px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 18 }}>
@@ -247,20 +133,12 @@ const ScanPage: React.FC = () => {
 
           {error && <div className="alert alert-danger" style={{ marginBottom: 14 }}>{error}</div>}
 
-          <div style={{ display: 'flex', gap: 10 }}>
-            <button
-              onClick={reset}
-              style={{ padding: '15px 18px', borderRadius: 10, border: '1.5px solid #E2E8F0', background: '#F8FAFC', color: '#64748B', fontWeight: 600, fontSize: '0.9rem' }}
-            >
-              ✕ ביטול
-            </button>
-            <button
-              className="btn" style={{ flex: 1, background: dirColor, color: '#fff', padding: 15, fontSize: '1rem' }}
-              onClick={handleConfirm} disabled={loading || !qty || Number(qty) <= 0}
-            >
-              {loading ? 'שומר...' : `${result.direction === 'in' ? '✓ אישור כניסה' : '✓ אישור יציאה'} — ${qty || 0} ${selected.unit}`}
-            </button>
-          </div>
+          <button
+            className="btn" style={{ width: '100%', background: dirColor, color: '#fff', padding: 15, fontSize: '1rem' }}
+            onClick={handleConfirm} disabled={loading || !qty || Number(qty) <= 0}
+          >
+            {loading ? 'שומר...' : `${result.direction === 'in' ? '✓ אישור כניסה' : '✓ אישור יציאה'} — ${qty || 0} ${selected.unit}`}
+          </button>
         </div>
       )}
     </AppShell>

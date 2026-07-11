@@ -4,7 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import { authApi } from '../api';
 import type { UserListItem } from '../types';
 
-type Mode = 'pick' | 'pin' | 'register' | 'register-manager';
+type Mode = 'pick' | 'pin' | 'register' | 'register-manager' | 'pending';
 
 const LoginPage: React.FC = () => {
   const { loginWithUser, register, registerManager } = useAuth();
@@ -33,17 +33,19 @@ const LoginPage: React.FC = () => {
   };
 
   const handleRegister = async () => {
-    if (!name.trim()) { setError('נא להזין שם'); return; }
-    if (newPin.length !== 4) { setError('נא לבחור קוד אישי בן 4 ספרות'); return; }
+    if (!name.trim() || newPin.length !== 4) { setError('שם וקוד 4 ספרות חובה'); return; }
     setLoading(true); setError('');
-    try { await register(name, newPin); navigate('/'); }
+    try {
+      const result = await register(name, newPin);
+      if (result.pending) setMode('pending');
+      else navigate('/');
+    }
     catch (e: any) { setError(e.response?.data?.error || 'שגיאה ברישום'); }
     finally { setLoading(false); }
   };
 
   const handleRegisterManager = async () => {
-    if (!name.trim()) { setError('נא להזין שם'); return; }
-    if (newPin.length !== 4) { setError('נא לבחור קוד אישי בן 4 ספרות'); return; }
+    if (!name.trim() || newPin.length !== 4) { setError('שם וקוד 4 ספרות חובה'); return; }
     const hasManager = users.some(u => u.role === 'manager');
     if (!hasManager && !bootstrapCode.trim()) { setError('יש להזין קוד הקמה'); return; }
     setLoading(true); setError('');
@@ -52,8 +54,6 @@ const LoginPage: React.FC = () => {
     finally { setLoading(false); }
   };
 
-  // Shows the 4 PIN dots, with a clear ✓ checkmark replacing the last dot once complete —
-  // this is the main visual cue that "you're done, this will submit now".
   const PinPad = ({ value }: { value: string }) => (
     <div style={{ display: 'flex', justifyContent: 'center', gap: 10, margin: '20px 0' }}>
       {[0, 1, 2, 3].map(i => (
@@ -69,16 +69,16 @@ const LoginPage: React.FC = () => {
     </div>
   );
 
-  const Keypad = ({ value, onChange, onSubmit, autoSubmit }: { value: string; onChange: (v: string) => void; onSubmit: () => void; autoSubmit: boolean }) => (
+  const Keypad = ({ value, onChange, onSubmit }: { value: string; onChange: (v: string) => void; onSubmit: () => void }) => (
     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 10, maxWidth: 280, margin: '0 auto' }}>
       {[1,2,3,4,5,6,7,8,9].map(n => (
-        <button key={n} onClick={() => { if (value.length < 4) { const v = value + n; onChange(v); if (autoSubmit && v.length === 4) setTimeout(onSubmit, 150); } }}
+        <button key={n} onClick={() => { if (value.length < 4) { const v = value + n; onChange(v); if (v.length === 4) setTimeout(onSubmit, 150); } }}
           style={{ padding: '16px 0', fontSize: '1.3rem', fontWeight: 700, borderRadius: 12, border: '1.5px solid #E2E8F0', background: '#fff' }}>
           {n}
         </button>
       ))}
       <button onClick={() => onChange('')} style={{ padding: '16px 0', fontSize: '0.85rem', fontWeight: 600, borderRadius: 12, border: '1.5px solid #E2E8F0', background: '#F8FAFC', color: '#94A3B8' }}>נקה</button>
-      <button onClick={() => { if (value.length < 4) { const v = value + '0'; onChange(v); if (autoSubmit && v.length === 4) setTimeout(onSubmit, 150); } }}
+      <button onClick={() => { if (value.length < 4) { const v = value + '0'; onChange(v); if (v.length === 4) setTimeout(onSubmit, 150); } }}
         style={{ padding: '16px 0', fontSize: '1.3rem', fontWeight: 700, borderRadius: 12, border: '1.5px solid #E2E8F0', background: '#fff' }}>0</button>
       <button onClick={() => onChange(value.slice(0, -1))} style={{ padding: '16px 0', fontSize: '1.1rem', borderRadius: 12, border: '1.5px solid #E2E8F0', background: '#F8FAFC' }}>⌫</button>
     </div>
@@ -116,20 +116,15 @@ const LoginPage: React.FC = () => {
                   </div>
                 </button>
               ))}
-              {users.length === 0 && (
-                <div style={{ textAlign: 'center', color: '#94A3B8', padding: 20, fontSize: '0.85rem', lineHeight: 1.6 }}>
-                  אין משתמשים עדיין.<br />
-                  <strong>אם אתה המנהל</strong> — לחץ "הקמת מנהל ראשון" מתחת.
-                </div>
-              )}
+              {users.length === 0 && <div style={{ textAlign: 'center', color: '#94A3B8', padding: 20, fontSize: '0.85rem' }}>אין משתמשים עדיין — היה הראשון!</div>}
             </div>
 
-            <button className="btn btn-secondary" style={{ width: '100%', marginBottom: 8 }} onClick={() => { setMode('register'); setError(''); setName(''); setNewPin(''); }}>
-              👤 משתמש חדש (עובד) — כל אחד יכול
+            <button className="btn btn-secondary" style={{ width: '100%', marginBottom: 8 }} onClick={() => { setMode('register'); setError(''); }}>
+              👤 משתמש חדש (עובד)
             </button>
             {!users.some(u => u.role === 'manager') && (
-              <button className="btn" style={{ width: '100%', background: '#F5F3FF', color: '#7C3AED' }} onClick={() => { setMode('register-manager'); setError(''); setName(''); setNewPin(''); setBootstrapCode(''); }}>
-                👑 הקמת מנהל ראשון
+              <button className="btn" style={{ width: '100%', background: '#F5F3FF', color: '#7C3AED' }} onClick={() => { setMode('register-manager'); setError(''); }}>
+                👑 הקמת משתמש מנהל ראשון
               </button>
             )}
           </>
@@ -140,15 +135,10 @@ const LoginPage: React.FC = () => {
             <button onClick={() => setMode('pick')} style={{ background: 'none', border: 'none', color: '#94A3B8', fontSize: '0.85rem', marginBottom: 12 }}>← חזרה</button>
             <div style={{ textAlign: 'center', marginBottom: 8 }}>
               <div style={{ fontWeight: 700, fontSize: '1.1rem' }}>{selectedUser.name}</div>
-              <div style={{ fontSize: '0.78rem', color: '#94A3B8' }}>הזן את הקוד האישי שבחרת בהרשמה</div>
+              <div style={{ fontSize: '0.78rem', color: '#94A3B8' }}>הזן קוד אישי</div>
             </div>
             <PinPad value={pin} />
-            <Keypad value={pin} onChange={setPin} onSubmit={handlePinSubmit} autoSubmit />
-            {pin.length === 4 && !loading && (
-              <button className="btn btn-primary" style={{ width: '100%', marginTop: 16 }} onClick={handlePinSubmit}>
-                ✓ התחבר
-              </button>
-            )}
+            <Keypad value={pin} onChange={setPin} onSubmit={handlePinSubmit} />
             {loading && <div style={{ textAlign: 'center', marginTop: 12, color: '#94A3B8', fontSize: '0.85rem' }}>מתחבר...</div>}
           </>
         )}
@@ -156,21 +146,15 @@ const LoginPage: React.FC = () => {
         {mode === 'register' && (
           <>
             <button onClick={() => setMode('pick')} style={{ background: 'none', border: 'none', color: '#94A3B8', fontSize: '0.85rem', marginBottom: 16 }}>← חזרה</button>
-            <div style={{ fontWeight: 700, fontSize: '0.95rem', marginBottom: 14 }}>👤 הרשמה כעובד</div>
-            <p style={{ fontSize: '0.8rem', color: '#64748B', marginBottom: 16, lineHeight: 1.5 }}>
-              כל עובד יכול להירשם בעצמו — בלי אישור, בלי קוד מיוחד.
-            </p>
             <div className="form-group">
               <label>השם שלך</label>
               <input className="form-control" value={name} onChange={e => setName(e.target.value)} placeholder="לדוגמה: דניאל" autoFocus />
             </div>
-            <div style={{ textAlign: 'center', fontSize: '0.82rem', color: '#64748B', fontWeight: 600, marginTop: 16, marginBottom: 4 }}>
-              בחר קוד אישי בן 4 ספרות — תזכור אותו, תצטרך אותו בכל כניסה
-            </div>
+            <div style={{ textAlign: 'center', fontSize: '0.82rem', color: '#64748B', fontWeight: 600, marginTop: 16, marginBottom: 4 }}>בחר קוד אישי (4 ספרות)</div>
             <PinPad value={newPin} />
-            <Keypad value={newPin} onChange={setNewPin} onSubmit={handleRegister} autoSubmit={false} />
+            <Keypad value={newPin} onChange={setNewPin} onSubmit={() => {}} />
             <button className="btn btn-primary" style={{ width: '100%', marginTop: 16 }} onClick={handleRegister} disabled={loading || !name.trim() || newPin.length !== 4}>
-              {loading ? 'נרשם...' : newPin.length < 4 ? `הקלד ${4 - newPin.length} ספרות נוספות` : '✓ צור משתמש והתחבר'}
+              {loading ? 'נרשם...' : '✓ צור משתמש'}
             </button>
           </>
         )}
@@ -187,15 +171,25 @@ const LoginPage: React.FC = () => {
               <label>קוד הקמה</label>
               <input className="form-control" value={bootstrapCode} onChange={e => setBootstrapCode(e.target.value)} placeholder="קוד שקיבלת" style={{ direction: 'ltr', textAlign: 'right' }} />
             </div>
-            <div style={{ textAlign: 'center', fontSize: '0.82rem', color: '#64748B', fontWeight: 600, marginTop: 16, marginBottom: 4 }}>
-              בחר קוד אישי בן 4 ספרות — תזכור אותו, תצטרך אותו בכל כניסה
-            </div>
+            <div style={{ textAlign: 'center', fontSize: '0.82rem', color: '#64748B', fontWeight: 600, marginTop: 16, marginBottom: 4 }}>קוד אישי (4 ספרות)</div>
             <PinPad value={newPin} />
-            <Keypad value={newPin} onChange={setNewPin} onSubmit={handleRegisterManager} autoSubmit={false} />
+            <Keypad value={newPin} onChange={setNewPin} onSubmit={() => {}} />
             <button className="btn" style={{ width: '100%', marginTop: 16, background: '#7C3AED', color: '#fff' }} onClick={handleRegisterManager} disabled={loading || !name.trim() || newPin.length !== 4}>
-              {loading ? 'נרשם...' : newPin.length < 4 ? `הקלד ${4 - newPin.length} ספרות נוספות` : '👑 צור משתמש מנהל והתחבר'}
+              {loading ? 'נרשם...' : '👑 צור משתמש מנהל'}
             </button>
           </>
+        )}
+        {mode === 'pending' && (
+          <div style={{ textAlign: 'center', padding: '20px 4px' }}>
+            <div style={{ fontSize: 44, marginBottom: 14 }}>⏳</div>
+            <div style={{ fontWeight: 800, fontSize: '1.05rem', marginBottom: 8 }}>הבקשה נשלחה!</div>
+            <div style={{ fontSize: '0.86rem', color: '#64748B', marginBottom: 20, lineHeight: 1.6 }}>
+              הבקשה של <b>{name}</b> נשלחה למנהל לאישור.<br />ברגע שתאושר תוכל/י להתחבר עם הקוד האישי שבחרת.
+            </div>
+            <button className="btn btn-primary" style={{ width: '100%' }} onClick={() => { setMode('pick'); setName(''); setNewPin(''); authApi.listUsers().then(r => setUsers(r.data)).catch(() => {}); }}>
+              ← חזרה למסך ההתחברות
+            </button>
+          </div>
         )}
       </div>
     </div>
