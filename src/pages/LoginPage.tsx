@@ -24,10 +24,11 @@ const LoginPage: React.FC = () => {
     authApi.listUsers().then(r => setUsers(r.data)).catch(() => setUsers([]));
   }, []);
 
-  const handlePinSubmit = async () => {
-    if (pin.length !== 4 || !selectedUser) return;
+  const handlePinSubmit = async (finalPin?: string) => {
+    const p = finalPin ?? pin;
+    if (p.length !== 4 || !selectedUser) return;
     setLoading(true); setError('');
-    try { await loginWithUser(selectedUser.id, pin); navigate('/'); }
+    try { await loginWithUser(selectedUser.id, p); navigate('/'); }
     catch (e: any) { setError(e.response?.data?.error || 'קוד שגוי'); setPin(''); }
     finally { setLoading(false); }
   };
@@ -69,16 +70,16 @@ const LoginPage: React.FC = () => {
     </div>
   );
 
-  const Keypad = ({ value, onChange, onSubmit }: { value: string; onChange: (v: string) => void; onSubmit: () => void }) => (
+  const Keypad = ({ value, onChange, onSubmit }: { value: string; onChange: (v: string) => void; onSubmit: (finalValue: string) => void }) => (
     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 10, maxWidth: 280, margin: '0 auto' }}>
       {[1,2,3,4,5,6,7,8,9].map(n => (
-        <button key={n} onClick={() => { if (value.length < 4) { const v = value + n; onChange(v); if (v.length === 4) setTimeout(onSubmit, 150); } }}
+        <button key={n} onClick={() => { if (value.length < 4) { const v = value + n; onChange(v); if (v.length === 4) setTimeout(() => onSubmit(v), 150); } }}
           style={{ padding: '16px 0', fontSize: '1.3rem', fontWeight: 700, borderRadius: 12, border: '1.5px solid #E2E8F0', background: '#fff' }}>
           {n}
         </button>
       ))}
       <button onClick={() => onChange('')} style={{ padding: '16px 0', fontSize: '0.85rem', fontWeight: 600, borderRadius: 12, border: '1.5px solid #E2E8F0', background: '#F8FAFC', color: '#94A3B8' }}>נקה</button>
-      <button onClick={() => { if (value.length < 4) { const v = value + '0'; onChange(v); if (v.length === 4) setTimeout(onSubmit, 150); } }}
+      <button onClick={() => { if (value.length < 4) { const v = value + '0'; onChange(v); if (v.length === 4) setTimeout(() => onSubmit(v), 150); } }}
         style={{ padding: '16px 0', fontSize: '1.3rem', fontWeight: 700, borderRadius: 12, border: '1.5px solid #E2E8F0', background: '#fff' }}>0</button>
       <button onClick={() => onChange(value.slice(0, -1))} style={{ padding: '16px 0', fontSize: '1.1rem', borderRadius: 12, border: '1.5px solid #E2E8F0', background: '#F8FAFC' }}>⌫</button>
     </div>

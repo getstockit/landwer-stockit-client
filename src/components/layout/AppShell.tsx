@@ -30,15 +30,15 @@ const AppShell: React.FC<{ children: React.ReactNode; title: string }> = ({ chil
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
         position: 'sticky', top: 0, zIndex: 50,
       }}>
-        <div style={{ fontSize: '1.05rem', fontWeight: 800 }}>{title}</div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <div style={{ fontSize: '0.78rem', color: '#64748B', textAlign: 'left' }}>
-            <div style={{ fontWeight: 700, color: '#1E293B' }}>{user?.name}</div>
+        <div style={{ fontSize: '1.05rem', fontWeight: 800, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0, flex: 1 }}>{title}</div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+          <div style={{ fontSize: '0.78rem', color: '#64748B', textAlign: 'left', maxWidth: 90, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            <div style={{ fontWeight: 700, color: '#1E293B', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{user?.name}</div>
             <div>{user?.role === 'manager' ? '👑 מנהל' : '👤 עובד'}</div>
           </div>
           <button onClick={() => { logout(); navigate('/login'); }} style={{
-            width: 34, height: 34, borderRadius: '50%', border: '1px solid #E2E8F0',
-            background: '#F8FAFC', fontSize: '1rem',
+            width: 34, height: 34, minWidth: 34, borderRadius: '50%', border: '1px solid #E2E8F0',
+            background: '#F8FAFC', fontSize: '1rem', flexShrink: 0,
           }}>🚪</button>
         </div>
       </div>
