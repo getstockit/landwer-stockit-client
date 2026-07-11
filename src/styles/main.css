@@ -98,3 +98,17 @@ button { cursor: pointer; }
 .page-body { flex: 1; overflow-y: auto; padding: 16px 16px 90px; }
 
 @media print { .no-print { display: none !important; } }
+
+/* html5-qrcode injects a <video> element into the container div we give it.
+   Without this rule the camera preview can overflow our card and ignore our
+   border radius. (We use the raw Html5Qrcode class, not Html5QrcodeScanner,
+   so there's no default dashboard/scan-box UI to override here — we render
+   our own "כוון את המצלמה..." hint and cancel button instead.) */
+#barcode-camera-region video {
+  width: 100% !important;
+  border-radius: 10px;
+  display: block;
+}
+#barcode-camera-region {
+  width: 100%;
+}

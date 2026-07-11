@@ -53,7 +53,7 @@ export const supplierApi = {
   remove: (id: string) => api.delete(`/suppliers/${id}`),
 };
 
-export const alertsApi = { get: () => api.get('/alerts') };
+export const alertsApi = { supplierReminders: () => api.get('/alerts/supplier-reminders') };
 
 export const productApi = {
   getAll: () => api.get('/products'),
@@ -80,6 +80,7 @@ export const deliveryApi = {
 };
 
 export const reportApi = {
+  lowStock: () => api.get('/reports/low-stock'),
   current: () => api.get('/reports/current'),
   history: (params?: object) => api.get('/reports/history', { params }),
 };

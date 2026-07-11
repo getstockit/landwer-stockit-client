@@ -28,8 +28,6 @@ const ReportsPage: React.FC = () => {
       {/* Admin quick links */}
       <div style={{ display: 'flex', gap: 8, marginBottom: 16, overflowX: 'auto' }}>
         <button onClick={() => navigate('/products')} style={{ flex: '1 0 auto', padding: '10px 12px', borderRadius: 10, border: '1px solid #E2E8F0', background: '#F8FAFC', fontSize: '0.78rem', fontWeight: 600, whiteSpace: 'nowrap' }}>🛠 מוצרים ומק"טים</button>
-        <button onClick={() => navigate('/locations')} style={{ flex: '1 0 auto', padding: '10px 12px', borderRadius: 10, border: '1px solid #E2E8F0', background: '#F8FAFC', fontSize: '0.78rem', fontWeight: 600, whiteSpace: 'nowrap' }}>❄️ מקררים</button>
-        <button onClick={() => navigate('/suppliers')} style={{ flex: '1 0 auto', padding: '10px 12px', borderRadius: 10, border: '1px solid #E2E8F0', background: '#F8FAFC', fontSize: '0.78rem', fontWeight: 600, whiteSpace: 'nowrap' }}>🚚 ספקים</button>
         <button onClick={() => navigate('/barcodes')} style={{ flex: '1 0 auto', padding: '10px 12px', borderRadius: 10, border: '1px solid #E2E8F0', background: '#F8FAFC', fontSize: '0.78rem', fontWeight: 600, whiteSpace: 'nowrap' }}>🏷 ברקודים</button>
         <button onClick={() => navigate('/team')} style={{ flex: '1 0 auto', padding: '10px 12px', borderRadius: 10, border: '1px solid #E2E8F0', background: '#F8FAFC', fontSize: '0.78rem', fontWeight: 600, whiteSpace: 'nowrap' }}>👥 צוות</button>
       </div>

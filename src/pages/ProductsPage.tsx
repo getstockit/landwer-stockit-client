@@ -71,7 +71,7 @@ const ProductsPage: React.FC = () => {
     await saveField(p.id, 'isActive', !p.isActive);
   };
 
-  const missingSku = products.filter(p => !p.sku).length;
+  const missingSku = products.filter(p => p.isActive && !p.sku).length;
   const filtered = products.filter(p => p.isActive && (!search || p.name.includes(search) || (p.sku||'').includes(search)));
 
   if (loading) return <AppShell title="מוצרים"><div className="spinner" style={{ marginTop: 60 }} /></AppShell>;

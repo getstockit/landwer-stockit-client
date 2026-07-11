@@ -3,8 +3,6 @@ import AppShell from '../components/layout/AppShell';
 import { locationApi, barcodeApi } from '../api';
 import type { Location, LocationType } from '../types';
 
-const TYPE_LABEL: Record<LocationType, string> = { fridge: '❄️ מקרר', freezer: '🧊 מקפיא', warehouse: '📦 מחסן' };
-
 function EditableName({ value, onSave }: { value: string; onSave: (v: string) => void }) {
   const [editing, setEditing] = useState(false);
   const [val, setVal] = useState(value);
@@ -54,7 +52,7 @@ const LocationsPage: React.FC = () => {
 
   const handleRegenerate = async () => {
     setRegenerating(true);
-    try { await barcodeApi.regenerate(); alert('הברקודים עודכנו! עכשיו כדאי להיכנס לעמוד "ברקודים" ולהדפיס מחדש.'); }
+    try { await barcodeApi.regenerate(); alert('הברקודים עודכנו! עכשיו כדאי להיכנס לעמוד "ברקודים" ולהדפיס מחדש מדבקות ששינו מספר.'); }
     finally { setRegenerating(false); }
   };
 
@@ -70,7 +68,7 @@ const LocationsPage: React.FC = () => {
       {error && <div className="alert alert-danger" style={{ marginBottom: 14 }}>{error}</div>}
 
       <div className="alert alert-warning" style={{ marginBottom: 16, fontSize: '0.78rem' }}>
-        ⚠️ כל שינוי כאן (הוספה/הסרה) ממספר מחדש את הברקודים אוטומטית. אחרי שינויים — היכנס/י לעמוד "ברקודים" והדפס/י מחדש את המדבקות שהשתנו.
+        ⚠️ כל שינוי כאן (הוספה/הסרה) ממספר מחדש את הברקודים אוטומטית. אחרי שינויים — היכנס/י לעמוד "ברקודים" והדפס/י מחדש את המדבקות שהמספר שלהן השתנה.
       </div>
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 20 }}>
