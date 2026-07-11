@@ -1,5 +1,4 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import AppShell from '../components/layout/AppShell';
 import { reportApi, authApi, locationApi } from '../api';
 
@@ -32,7 +31,6 @@ const QUICK_RANGES: { key: QuickRange; label: string }[] = [
 ];
 
 const ReportsPage: React.FC = () => {
-  const navigate = useNavigate();
   const [tab, setTab] = useState<Tab>('current');
   const [current, setCurrent] = useState<any>(null);
   const [history, setHistory] = useState<any>(null);
@@ -88,13 +86,6 @@ const ReportsPage: React.FC = () => {
 
   return (
     <AppShell title="דוחות">
-      {/* Admin quick links */}
-      <div style={{ display: 'flex', gap: 8, marginBottom: 16, overflowX: 'auto' }}>
-        <button onClick={() => navigate('/products')} style={{ flex: '1 0 auto', padding: '10px 12px', borderRadius: 10, border: '1px solid #E2E8F0', background: '#F8FAFC', fontSize: '0.78rem', fontWeight: 600, whiteSpace: 'nowrap' }}>🛠 מוצרים ומק"טים</button>
-        <button onClick={() => navigate('/barcodes')} style={{ flex: '1 0 auto', padding: '10px 12px', borderRadius: 10, border: '1px solid #E2E8F0', background: '#F8FAFC', fontSize: '0.78rem', fontWeight: 600, whiteSpace: 'nowrap' }}>🏷 ברקודים</button>
-        <button onClick={() => navigate('/team')} style={{ flex: '1 0 auto', padding: '10px 12px', borderRadius: 10, border: '1px solid #E2E8F0', background: '#F8FAFC', fontSize: '0.78rem', fontWeight: 600, whiteSpace: 'nowrap' }}>👥 צוות</button>
-      </div>
-
       <div style={{ display: 'flex', gap: 8, marginBottom: 18 }}>
         <button className={tab === 'current' ? 'btn btn-primary' : 'btn btn-secondary'} style={{ flex: 1 }} onClick={() => setTab('current')}>📊 שווי מלאי כעת</button>
         <button className={tab === 'history' ? 'btn btn-primary' : 'btn btn-secondary'} style={{ flex: 1 }} onClick={() => setTab('history')}>📅 תנועות לפי תאריך</button>

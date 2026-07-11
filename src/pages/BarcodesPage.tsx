@@ -35,14 +35,14 @@ const BarcodesPage: React.FC = () => {
       const svgOut = svgRefs.current[`${p.locId}-out`];
       if (svgIn) {
         JsBarcode(svgIn, p.inCode, {
-          format: 'CODE128', lineColor: '#15803D', width: 2.4, height: 60,
-          displayValue: true, fontSize: 13, margin: 6, background: 'transparent',
+          format: 'CODE128', lineColor: '#15803D', width: 3, height: 80,
+          displayValue: true, fontSize: 16, margin: 8, background: 'transparent',
         });
       }
       if (svgOut) {
         JsBarcode(svgOut, p.outCode, {
-          format: 'CODE128', lineColor: '#B91C1C', width: 2.4, height: 60,
-          displayValue: true, fontSize: 13, margin: 6, background: 'transparent',
+          format: 'CODE128', lineColor: '#B91C1C', width: 3, height: 80,
+          displayValue: true, fontSize: 16, margin: 8, background: 'transparent',
         });
       }
     });
@@ -61,12 +61,13 @@ const BarcodesPage: React.FC = () => {
     }).join('');
     win.document.write(`<!DOCTYPE html><html dir="rtl"><head><meta charset="UTF-8"><title>ברקודים לנדוור</title>
 <style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:Arial;padding:14px;direction:rtl}
-h1{text-align:center;font-size:16px;margin-bottom:14px}.grid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px}
-.card{border:1.5px solid #CBD5E1;border-radius:8px;padding:11px;page-break-inside:avoid}
-.loc{font-size:12px;font-weight:700;margin-bottom:8px}.row{display:grid;grid-template-columns:1fr 1fr;gap:7px}
-.box{border-radius:6px;padding:7px;text-align:center;background:#fff}.in{border:1px solid #86EFAC}
-.out{border:1px solid #FCA5A5}.lbl{font-size:9px;font-weight:700;margin-bottom:4px}
-.shortcode{font-size:18px;font-weight:800;letter-spacing:1px;margin-bottom:4px}
+h1{text-align:center;font-size:18px;margin-bottom:16px}.grid{display:grid;grid-template-columns:repeat(2,1fr);gap:16px}
+.card{border:2px solid #CBD5E1;border-radius:10px;padding:16px;page-break-inside:avoid}
+.card:nth-child(4n){page-break-after:always}
+.loc{font-size:16px;font-weight:700;margin-bottom:12px}.row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.box{border-radius:8px;padding:10px;text-align:center;background:#fff}.in{border:1.5px solid #86EFAC}
+.out{border:1.5px solid #FCA5A5}.lbl{font-size:12px;font-weight:700;margin-bottom:6px}
+.shortcode{font-size:28px;font-weight:800;letter-spacing:1px;margin-bottom:6px}
 .in .lbl,.in .shortcode{color:#15803D}.out .lbl,.out .shortcode{color:#B91C1C}svg{max-width:100%}</style></head>
 <body><h1>☕ Stock-It לנדוור — ברקודי מיקומים</h1><div class="grid">${cards}</div>
 <script>window.onload=()=>window.print()</script></body></html>`);

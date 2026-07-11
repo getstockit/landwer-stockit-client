@@ -175,9 +175,12 @@ const InventoryPage: React.FC = () => {
                     const displayQty = p.quantity + delta;
                     const confirming = confirmingId === p.id;
                     return (
-                      <div key={p.id} style={{ padding: '10px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #F8FAFC', gap: 10 }}>
+                      <div key={p.id} style={{ padding: '10px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #F8FAFC', gap: 10, background: isLow ? '#FEF2F2' : 'transparent' }}>
                         <div style={{ flex: 1, minWidth: 0 }}>
-                          <div style={{ fontSize: '0.86rem', fontWeight: 600 }}>{p.name}</div>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                            {isLow && <span title="מלאי נמוך" style={{ fontSize: '0.7rem' }}>⚠️</span>}
+                            <div style={{ fontSize: '0.86rem', fontWeight: 600, color: isLow ? '#DC2626' : '#1E293B' }}>{p.name}</div>
+                          </div>
                           <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 2, flexWrap: 'wrap' }}>
                             {p.sku && <span style={{ fontSize: '0.68rem', color: '#94A3B8', fontFamily: 'monospace' }}>מק"ט: {p.sku}</span>}
                             <PriceField value={p.price} editable={isManager} onSave={price => savePrice(p, price)} />

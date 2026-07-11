@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import AppShell from '../components/layout/AppShell';
 import { supplierApi, productApi } from '../api';
-import type { Supplier, Product } from '../types';
+import type { Supplier, Product, SupplierAlertMode } from '../types';
 
 const DAY_NAMES = ['ראשון', 'שני', 'שלישי', 'רביעי', 'חמישי', 'שישי', 'שבת'];
 
@@ -21,29 +21,81 @@ function EditableName({ value, onSave }: { value: string; onSave: (v: string) =>
   );
 }
 
+// Alert-mode editor — off / N days before order day / a fixed custom weekday+time.
+function AlertConfig({ s, onChange }: { s: Supplier; onChange: (patch: object) => void }) {
+  const mode = s.alertMode || 'daysBefore';
+  return (
+    <div style={{ background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: 10, padding: 10, marginBottom: 8 }}>
+      <div style={{ fontSize: '0.76rem', fontWeight: 700, color: '#64748B', marginBottom: 8 }}>🔔 התראה</div>
+      <div style={{ display: 'flex', gap: 6, marginBottom: 8, flexWrap: 'wrap' }}>
+        {([
+          { key: 'off', label: 'ללא התראה' },
+          { key: 'daysBefore', label: 'X ימים לפני' },
+          { key: 'custom', label: 'מותאם אישית' },
+        ] as { key: SupplierAlertMode; label: string }[]).map(opt => (
+          <button key={opt.key} onClick={() => onChange({ alertMode: opt.key })} style={{
+            padding: '6px 12px', borderRadius: 20, fontSize: '0.74rem', fontWeight: 600,
+            border: mode === opt.key ? '1.5px solid #2563EB' : '1.5px solid #E2E8F0',
+            background: mode === opt.key ? '#EFF6FF' : '#fff',
+            color: mode === opt.key ? '#2563EB' : '#64748B',
+          }}>{opt.label}</button>
+        ))}
+      </div>
+
+      {mode === 'daysBefore' && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: '0.78rem', color: '#64748B' }}>
+          <span>התרע</span>
+          <select className="form-control" value={s.alertDaysBefore ?? 1} onChange={e => onChange({ alertDaysBefore: Number(e.target.value) })}
+            style={{ padding: '5px 8px', fontSize: '0.78rem', width: 'auto' }}>
+            <option value={1}>יום אחד</option>
+            <option value={2}>יומיים</option>
+            <option value={3}>3 ימים</option>
+            <option value={4}>4 ימים</option>
+            <option value={5}>5 ימים</option>
+          </select>
+          <span>לפני יום ההזמנה</span>
+        </div>
+      )}
+
+      {mode === 'custom' && (
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+          <span style={{ fontSize: '0.78rem', color: '#64748B' }}>התרע ביום:</span>
+          <select className="form-control" value={s.customDay ?? s.orderDay} onChange={e => onChange({ customDay: Number(e.target.value) })}
+            style={{ padding: '5px 8px', fontSize: '0.78rem', width: 'auto' }}>
+            {DAY_NAMES.map((d, i) => <option key={i} value={i}>יום {d}</option>)}
+          </select>
+          <span style={{ fontSize: '0.78rem', color: '#64748B' }}>בשעה:</span>
+          <input type="time" className="form-control" value={s.customTime || ''} onChange={e => onChange({ customTime: e.target.value })}
+            style={{ padding: '5px 8px', fontSize: '0.78rem', width: 'auto' }} />
+        </div>
+      )}
+    </div>
+  );
+}
+
 const SuppliersPage: React.FC = () => {
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [showAdd, setShowAdd] = useState(false);
   const [expanded, setExpanded] = useState<string | null>(null);
-  const [form, setForm] = useState({ name: '', orderDay: '1', alertEnabled: true });
+  const [form, setForm] = useState({ name: '', orderDay: '1' });
 
   const load = () => Promise.all([supplierApi.getAll(), productApi.getAll()])
     .then(([s, p]) => { setSuppliers(s.data); setProducts(p.data); })
     .finally(() => setLoading(false));
   useEffect(() => { load(); }, []);
 
-  const saveField = async (id: string, field: string, value: any) => {
-    const res = await supplierApi.update(id, { [field]: value });
+  const saveField = async (id: string, patch: object) => {
+    const res = await supplierApi.update(id, patch);
     setSuppliers(ss => ss.map(s => s.id === id ? res.data : s));
   };
 
   const handleAdd = async () => {
     if (!form.name.trim()) return;
-    const res = await supplierApi.create({ ...form, orderDay: Number(form.orderDay) });
+    const res = await supplierApi.create({ name: form.name, orderDay: Number(form.orderDay), alertMode: 'daysBefore', alertDaysBefore: 1 });
     setSuppliers(ss => [...ss, res.data]);
-    setForm({ name: '', orderDay: '1', alertEnabled: true });
+    setForm({ name: '', orderDay: '1' });
     setShowAdd(false);
   };
 
@@ -73,20 +125,19 @@ const SuppliersPage: React.FC = () => {
           return (
             <div key={s.id} className="card" style={{ padding: '12px 14px' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-                <EditableName value={s.name} onSave={v => saveField(s.id, 'name', v)} />
+                <EditableName value={s.name} onSave={v => saveField(s.id, { name: v })} />
                 <button onClick={() => handleRemove(s)} style={{ background: '#FEF2F2', border: '1px solid #FCA5A5', color: '#DC2626', borderRadius: 8, padding: '5px 10px', fontSize: '0.72rem' }}>הסר</button>
               </div>
               <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center', marginBottom: 8 }}>
                 <span style={{ fontSize: '0.78rem', color: '#94A3B8' }}>יום הזמנה:</span>
-                <select className="form-control" value={s.orderDay} onChange={e => saveField(s.id, 'orderDay', Number(e.target.value))}
+                <select className="form-control" value={s.orderDay} onChange={e => saveField(s.id, { orderDay: Number(e.target.value) })}
                   style={{ padding: '5px 8px', fontSize: '0.78rem', width: 'auto' }}>
                   {DAY_NAMES.map((d, i) => <option key={i} value={i}>יום {d}</option>)}
                 </select>
-                <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.78rem', color: '#64748B' }}>
-                  <input type="checkbox" checked={s.alertEnabled} onChange={e => saveField(s.id, 'alertEnabled', e.target.checked)} />
-                  התראה יום לפני
-                </label>
               </div>
+
+              <AlertConfig s={s} onChange={patch => saveField(s.id, patch)} />
+
               <button onClick={() => setExpanded(isOpen ? null : s.id)} style={{ background: 'none', border: 'none', color: '#C8102E', fontSize: '0.78rem', fontWeight: 700, padding: 0 }}>
                 {isOpen ? '▲ הסתר' : '▼ הצג'} מוצרים ({supplierProducts.length})
               </button>
@@ -121,10 +172,9 @@ const SuppliersPage: React.FC = () => {
                 {DAY_NAMES.map((d, i) => <option key={i} value={i}>יום {d}</option>)}
               </select>
             </div>
-            <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: '0.85rem', marginBottom: 16 }}>
-              <input type="checkbox" checked={form.alertEnabled} onChange={e => setForm(f => ({ ...f, alertEnabled: e.target.checked }))} />
-              קבל/י התראה יום לפני יום ההזמנה
-            </label>
+            <p style={{ fontSize: '0.76rem', color: '#94A3B8', marginBottom: 16 }}>
+              ברירת מחדל: התראה יום אחד לפני יום ההזמנה — ניתן לשנות אחרי היצירה.
+            </p>
             <div style={{ display: 'flex', gap: 10 }}>
               <button className="btn btn-secondary" style={{ flex: 1 }} onClick={() => setShowAdd(false)}>ביטול</button>
               <button className="btn btn-primary" style={{ flex: 2 }} onClick={handleAdd}>צור ספק</button>

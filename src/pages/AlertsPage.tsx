@@ -1,10 +1,12 @@
 import React, { useEffect, useState } from 'react';
 import AppShell from '../components/layout/AppShell';
-import { reportApi, alertsApi } from '../api';
+import { reportApi, alertsApi, pushApi } from '../api';
+import { useAuth } from '../context/AuthContext';
+import { isPushSupported, isIosNotStandalone, enablePush, disablePush } from '../utils/push';
 
 interface LowStockItem {
   id: string; name: string; unit: string; minQty: number;
-  quantity: number; locationName: string;
+  quantity: number; locationName: string; supplierName: string | null;
 }
 
 interface SupplierReminder {
@@ -14,22 +16,39 @@ interface SupplierReminder {
 }
 
 const AlertsPage: React.FC = () => {
+  const { user } = useAuth();
+  const isManager = user?.role === 'manager';
   const [items, setItems] = useState<LowStockItem[]>([]);
   const [reminders, setReminders] = useState<SupplierReminder[]>([]);
-  const [tomorrowName, setTomorrowName] = useState('');
   const [loading, setLoading] = useState(true);
   const [expanded, setExpanded] = useState<string | null>(null);
+  const [pushSubscribed, setPushSubscribed] = useState(false);
+  const [pushBusy, setPushBusy] = useState(false);
+  const [pushError, setPushError] = useState('');
 
   useEffect(() => {
     Promise.all([
       reportApi.lowStock(),
       alertsApi.supplierReminders(),
-    ]).then(([lowStockRes, remindersRes]) => {
+      isManager ? pushApi.status() : Promise.resolve({ data: { subscribed: false } }),
+    ]).then(([lowStockRes, remindersRes, pushRes]) => {
       setItems(lowStockRes.data.items);
       setReminders(remindersRes.data.reminders);
-      setTomorrowName(remindersRes.data.tomorrowName);
+      setPushSubscribed(pushRes.data.subscribed);
     }).finally(() => setLoading(false));
-  }, []);
+  }, [isManager]);
+
+  const handleTogglePush = async () => {
+    setPushError(''); setPushBusy(true);
+    try {
+      if (pushSubscribed) { await disablePush(); setPushSubscribed(false); }
+      else { await enablePush(); setPushSubscribed(true); }
+    } catch (e: any) {
+      setPushError(e.message || 'שגיאה בהפעלת התראות');
+    } finally {
+      setPushBusy(false);
+    }
+  };
 
   if (loading) return <AppShell title="התראות"><div className="spinner" style={{ marginTop: 60 }} /></AppShell>;
 
@@ -37,6 +56,35 @@ const AlertsPage: React.FC = () => {
 
   return (
     <AppShell title="התראות">
+      {isManager && (
+        <div className="card" style={{ marginBottom: 18, padding: '14px 16px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <span style={{ fontSize: '1.3rem' }}>🔔</span>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontWeight: 700, fontSize: '0.9rem' }}>התראות Push</div>
+              <div style={{ fontSize: '0.72rem', color: '#94A3B8' }}>
+                {pushSubscribed ? 'פעיל במכשיר הזה — נשלחת תזכורת יומית בבוקר' : 'קבל תזכורת יומית למכשיר הזה על מלאי נמוך והזמנות ספקים'}
+              </div>
+            </div>
+            <button onClick={handleTogglePush} disabled={pushBusy || (!isPushSupported() && !pushSubscribed)} style={{
+              padding: '8px 16px', borderRadius: 10, border: 'none', fontWeight: 700, fontSize: '0.8rem',
+              background: pushSubscribed ? '#FEF2F2' : '#16A34A', color: pushSubscribed ? '#DC2626' : '#fff',
+              opacity: pushBusy ? 0.6 : 1,
+            }}>
+              {pushBusy ? '...' : pushSubscribed ? 'כבה' : 'הפעל'}
+            </button>
+          </div>
+          {!isPushSupported() && !pushSubscribed && (
+            <div style={{ fontSize: '0.72rem', color: '#D97706', marginTop: 8 }}>
+              {isIosNotStandalone()
+                ? '⚠️ באייפון זה עובד רק דרך קיצור הדרך במסך הבית — הוסף/י את האפליקציה למסך הבית ופתח/י אותה משם.'
+                : '⚠️ הדפדפן הזה לא תומך בהתראות Push.'}
+            </div>
+          )}
+          {pushError && <div style={{ fontSize: '0.72rem', color: '#DC2626', marginTop: 8 }}>{pushError}</div>}
+        </div>
+      )}
+
       {noAlerts && (
         <div className="empty-state">
           <div className="empty-icon">✅</div>
@@ -48,7 +96,7 @@ const AlertsPage: React.FC = () => {
       {reminders.length > 0 && (
         <div style={{ marginBottom: 22 }}>
           <div style={{ fontSize: '0.85rem', fontWeight: 700, color: '#2563EB', marginBottom: 8 }}>
-            🚚 מחר יום הזמנה — {tomorrowName}
+            🚚 תזכורות הזמנה מספקים להיום
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
             {reminders.map(r => {
@@ -60,7 +108,7 @@ const AlertsPage: React.FC = () => {
                     <span style={{ fontSize: '1.3rem' }}>🚚</span>
                     <div style={{ flex: 1 }}>
                       <div style={{ fontWeight: 700, fontSize: '0.92rem' }}>{r.supplier.name}</div>
-                      <div style={{ fontSize: '0.72rem', color: '#64748B' }}>מחר ({r.orderDayName}) יום הזמנה · {r.products.length} מוצרים</div>
+                      <div style={{ fontSize: '0.72rem', color: '#64748B' }}>יום ההזמנה שלהם: {r.orderDayName} · {r.products.length} מוצרים</div>
                     </div>
                     <span style={{ color: '#93C5FD', transform: isOpen ? 'rotate(90deg)' : 'none', transition: 'transform 0.15s' }}>›</span>
                   </div>
@@ -108,6 +156,9 @@ const AlertsPage: React.FC = () => {
                   <div>
                     <div style={{ fontWeight: 700, fontSize: '0.92rem' }}>{item.name}</div>
                     <div style={{ fontSize: '0.74rem', color: '#94A3B8' }}>{item.locationName}</div>
+                    <div style={{ fontSize: '0.72rem', color: item.supplierName ? '#2563EB' : '#CBD5E1', marginTop: 1 }}>
+                      {item.supplierName ? `🚚 ${item.supplierName}` : 'ללא ספק משויך'}
+                    </div>
                   </div>
                   <div style={{ textAlign: 'left' }}>
                     <div style={{ fontWeight: 800, fontSize: '1.1rem', color: isOut ? '#DC2626' : '#D97706' }}>

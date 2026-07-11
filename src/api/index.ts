@@ -55,6 +55,13 @@ export const supplierApi = {
 
 export const alertsApi = { supplierReminders: () => api.get('/alerts/supplier-reminders') };
 
+export const pushApi = {
+  getVapidKey:  () => api.get('/push/vapid-public-key'),
+  subscribe:    (subscription: object) => api.post('/push/subscribe', { subscription }),
+  unsubscribe:  (endpoint: string) => api.post('/push/unsubscribe', { endpoint }),
+  status:       () => api.get('/push/status'),
+};
+
 export const productApi = {
   getAll: () => api.get('/products'),
   create: (d: object) => api.post('/products', d),

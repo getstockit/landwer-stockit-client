@@ -6,8 +6,11 @@ export interface PendingUser { id: string; name: string; createdAt: string; }
 export type LocationType = 'fridge' | 'freezer' | 'warehouse';
 export interface Location { id: string; name: string; type: LocationType; sortOrder: number; isActive: boolean; hasBarcode?: boolean; }
 
+export type SupplierAlertMode = 'off' | 'daysBefore' | 'custom';
 export interface Supplier {
-  id: string; name: string; orderDay: number; alertEnabled: boolean; isActive: boolean; createdAt: string;
+  id: string; name: string; orderDay: number;
+  alertMode: SupplierAlertMode; alertDaysBefore?: number; customDay?: number; customTime?: string;
+  isActive: boolean; createdAt: string;
 }
 
 export interface Product {
